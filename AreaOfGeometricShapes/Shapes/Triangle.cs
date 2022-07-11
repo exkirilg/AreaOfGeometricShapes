@@ -1,65 +1,66 @@
 ﻿namespace AreaOfGeometricShapes.Shapes;
 
-public class Triangle: IShape
+public class Triangle : GeometricShape
 {
-    private double[] _sides = new double[3];
-
-    public double RoundAccuracy { get; set; } = 0.1;
-
-    public IReadOnlyCollection<double> Sides => _sides;
-    public bool IsRightTriangle
-    {
-        get
-        {
-            var hypotenuseIndex = GetRightTriangleHypotenuseIndex();
-            var hypotenuse = _sides[hypotenuseIndex];
-            var legs = GetRightTriangleLegs();
-
-            var hypotenuseSquare = Math.Pow(hypotenuse, 2);
-            var legsSquareSum = Math.Pow(legs[0], 2) + Math.Pow(legs[1], 2);
-
-            return
-                hypotenuseSquare == legsSquareSum ||
-                (Math.Abs(hypotenuseSquare - legsSquareSum) / hypotenuseSquare * 100) <= RoundAccuracy;
-        }
-    }
-    public double Area
-    {
-        get
-        {
-            if (IsRightTriangle)
-            {
-                var legs = GetRightTriangleLegs();
-                return legs[0] * legs[1] / 2;
-            }
-
-            var p = (_sides[0] + _sides[1] + _sides[2]) / 2;
-            return Math.Sqrt(p * (p - _sides[0])*(p - _sides[1]) *(p - _sides[2]));
-        }
-    }
+    public double SideA { get; private set; }
+    public double SideB { get; private set; }
+    public double SideC { get; private set; }
+    public bool IsRight { get; private set; }
 
     public Triangle(double a, double b, double c)
     {
-        if (TriangleIsPossible(a, b, c) == false)
-            throw new Exception($"Triangle with sides {a} - {b} - {c} is not possible");
-
-        _sides[0] = a;
-        _sides[1] = b;
-        _sides[2] = c;
+        SetSides(a, b, c);
     }
 
-    private bool TriangleIsPossible(double a, double b, double c)
+    public void SetSides(double a, double b, double c)
     {
-        return a + b > c && a + c > b && b + c > a;
+        if (IsImpossible(a, b, c))
+            throw new ArgumentException($"Triangle with sides {a} - {b} - {c} is not possible");
+
+        SideA = a;
+        SideB = b;
+        SideC = c;
+
+        SetIsRight();
     }
-    private int GetRightTriangleHypotenuseIndex()
+
+    public override double CalculateArea()
     {
-        var hypotenuse = Math.Max(_sides[0], Math.Max(_sides[1], _sides[2]));
-        return Array.IndexOf(_sides, hypotenuse);
+        if (IsRight)
+        {
+            var (hypotenuse, legA, legB) = GetHypotenuseAndLegs();
+            return legA * legB / 2;
+        }
+
+        var p = (SideA + SideB + SideC) / 2;
+        return Math.Sqrt(p * (p - SideA) * (p - SideB) * (p - SideC));
     }
-    private double[] GetRightTriangleLegs()
+
+    private bool IsImpossible(double a, double b, double c)
     {
-        var legs = Sides.Where(s => Array.IndexOf(_sides, s) != GetRightTriangleHypotenuseIndex());
-        return new double[] { legs.First(), legs.Last() };
+        return a + b < c
+            || a + c < b
+            || b + c < a;
+    }
+    private void SetIsRight()
+    {
+        IsRight = Math.Pow(SideA, 2) == Math.Pow(SideB, 2) + Math.Pow(SideC, 2)
+            || Math.Pow(SideB, 2) == Math.Pow(SideA, 2) + Math.Pow(SideC, 2)
+            || Math.Pow(SideC, 2) == Math.Pow(SideA, 2) + Math.Pow(SideB, 2);
+    }
+    private (double hypotenuse, double legA, double legB) GetHypotenuseAndLegs()
+    {
+        (double hypotenuse, double legA, double legB) result = (hypotenuse: 0, legA: 0, legB: 0);
+        
+        var sides = typeof(Triangle).GetProperties()
+            .Where(p => p.Name.StartsWith("Side"))
+            .Select(p => (double)p.GetValue(this)!)
+            .OrderByDescending(v => v);
+
+        result.hypotenuse = sides.Take(1).First();
+        result.legA = sides.TakeLast(2).First();
+        result.legB = sides.TakeLast(2).Last();
+
+        return result;
     }
 }
